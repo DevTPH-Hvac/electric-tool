@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>水電空調配線助手 - 行動版</title>
+    <style>
+        :root { 
+            --primary: #1a73e8; 
+            --secondary: #5f6368;
+            --pvc-bg: #fff4e5; 
+            --xlpe-bg: #e3f2fd; 
+            --ground-bg: #e6f4ea; 
+            --conduit-bg: #f3e5f5; 
+            --emt-bg: #e8eaf6; 
+            --card-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        body { 
+            font-family: -apple-system, "Noto Sans TC", "Microsoft JhengHei", sans-serif; 
+            background-color: #f8f9fa; 
+            margin: 0; 
+            padding: 10px;
+            color: #333;
+        }
+
+        .container { 
+            width: 100%; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            background: #fff; 
+            padding: 15px; 
+            border-radius: 16px; 
+            box-sizing: border-box;
+            box-shadow: var(--card-shadow);
+        }
+
+        h2 { 
+            text-align: center; 
+            color: var(--primary); 
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        /* 輸入區優化 */
+        .input-section { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 12px; 
+            margin-bottom: 20px; 
+            background: #f1f3f4; 
+            padding: 15px; 
+            border-radius: 12px; 
+        }
+
+        label { 
+            font-weight: bold; 
+            font-size: 0.9rem; 
+            display: block; 
+            margin-bottom: 5px;
+            color: var(--secondary);
+        }
+
+        input { 
+            width: 100%; 
+            padding: 12px; 
+            border: 1px solid #dadce0; 
+            border-radius: 8px; 
+            font-size: 1.1rem; 
+            box-sizing: border-box; 
+            -webkit-appearance: none; /* 移除 iOS 預設陰影 */
+        }
+
+        /* 結果卡片優化 */
+        .result-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 10px; 
+            margin-bottom: 20px; 
+        }
+
+        .card { 
+            padding: 15px 10px; 
+            border-radius: 12px; 
+            text-align: center; 
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .card span:first-child { font-size: 0.85rem; color: #555; font-weight: bold; }
+        .card-val { font-size: 1.6rem; font-weight: 900; display: block; margin: 4px 0; color: #d32f2f; }
+        .card-unit { font-size: 0.8rem; color: #666; }
+        .card-inch { font-size: 0.9rem; color: #1a73e8; font-weight: bold; display: block; }
+
+        /* 特殊卡片顏色 */
+        .pvc-card { background: var(--pvc-bg); }
+        .xlpe-card { background: var(--xlpe-bg); }
+        .ground-card { background: var(--ground-bg); grid-column: span 2; }
+        .conduit-card { background: var(--conduit-bg); }
+        .emt-card { background: var(--emt-bg); }
+
+        h3 { 
+            font-size: 1rem; 
+            background: #e8eaed; 
+            padding: 10px; 
+            border-left: 5px solid var(--primary);
+            border-radius: 4px;
+            margin: 25px 0 10px 0;
+        }
+
+        /* 表格容器滾動優化 */
+        .table-wrapper { 
+            overflow-x: auto; 
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            -webkit-overflow-scrolling: touch; /* iOS 順暢滾動 */
+        }
+
+        table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 500px; }
+        th, td { border: 1px solid #eee; padding: 10px 5px; text-align: center; }
+        th { background: #f8f9fa; color: #5f6368; font-weight: 600; }
+
+        .hl { background-color: #fff9c4 !important; font-weight: bold; color: #d32f2f; }
+        .inch-tag { color: #1a73e8; font-size: 11px; display: block; font-weight: bold; }
+
+        /* 隱藏部分在手機上不重要的資訊，保持簡潔 */
+        @media (max-width: 480px) {
+            .input-section { grid-template-columns: 1fr; }
+            .card-val { font-size: 1.4rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>⚡ 配線配管選型 (手機版)</h2>
+    
+    <div class="input-section">
+        <div>
+            <label>⚡ 額定電流 (A)</label>
+            <input type="number" id="ampIn" placeholder="輸入電流" inputmode="decimal" oninput="updateAll()">
+        </div>
+        <div>
+            <label>🧵 管內導線數</label>
+            <input type="number" id="wireCountIn" value="3" min="1" max="10" inputmode="numeric" oninput="updateAll()">
+        </div>
+    </div>
+
+    <div class="result-grid">
+        <div class="card pvc-card">
+            <span>PVC 線徑</span>
+            <span class="card-val" id="resPvc">--</span>
+            <span class="card-unit">mm²</span>
+        </div>
+        <div class="card xlpe-card">
+            <span>XLPE 線徑</span>
+            <span class="card-val" id="resXlpe">--</span>
+            <span class="card-unit">mm²</span>
+        </div>
+        <div class="card conduit-card">
+            <span>厚管 (RSC)</span>
+            <span class="card-val" id="resPipe">--</span>
+            <span id="resPipeInch" class="card-inch"></span>
+        </div>
+        <div class="card emt-card">
+            <span>薄管 (EMT)</span>
+            <span class="card-val" id="resEmt">--</span>
+            <span id="resEmtInch" class="card-inch"></span>
+        </div>
+        <div class="card ground-card">
+            <span>🛠️ 接地線需求線徑</span>
+            <span class="card-val" id="resGround">--</span>
+            <span class="card-unit">mm²</span>
+        </div>
+    </div>
+
+    <p style="font-size: 12px; color: #888; text-align: center;">* 下方表格自動標記對應規格 *</p>
+
+    <h3>表：導線安全電流參考</h3>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr><th rowspan="2">線徑</th><th colspan="3">PVC (60°C)</th><th colspan="3">XLPE (90°C)</th></tr>
+                <tr><th>3↓</th><th>4</th><th>5-6</th><th>3↓</th><th>4</th><th>5-6</th></tr>
+            </thead>
+            <tbody id="bodyAmp"></tbody>
+        </table>
+    </div>
+
+    <h3>表：設備接地導線</h3>
+    <div class="table-wrapper">
+        <table style="min-width: 100%;">
+            <thead><tr><th>額定電流 (A) 以下</th><th>接地線徑 (mm²)</th></tr></thead>
+            <tbody id="bodyGround"></tbody>
+        </table>
+    </div>
+
+    <h3>表：導線管徑選用 (mm/吋)</h3>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr><th colspan="2">導線規格(mm²/mm)</th><th colspan="4">RSC 厚導線管</th><th colspan="4">EMT 薄導線管</th></tr>
+                <tr><th>單線</th><th>絞線</th><th>1-3</th><th>4</th><th>5-6</th><th>7-10</th><th>1-3</th><th>4</th><th>5-6</th><th>7-10</th></tr>
+            </thead>
+            <tbody id="bodyPipe"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // 數據庫保持不變
+    const ampDb = [
+        [3.5, 20, 20, 17, 32, 30, 26], [5.5, 30, 28, 25, 46, 42, 36], [8, 40, 35, 30, 55, 48, 43], [14, 55, 50, 45, 75, 70, 60],
+        [22, 70, 65, 60, 100, 90, 80], [30, 90, 80, 70, 125, 110, 100], [38, 100, 90, 80, 145, 130, 115], [50, 120, 110, 100, 170, 150, 135],
+        [60, 140, 125, 110, 195, 185, 155], [80, 165, 145, 130, 230, 205, 185], [100, 190, 170, 150, 265, 240, 215], [125, 220, 200, 175, 310, 275, 245],
+        [150, 250, 225, 200, 355, 315, 285], [200, 300, 270, 235, 420, 380, 335], [250, 355, 315, 280, 500, 450, 400], [325, 415, 370, 330, 580, 525, 465]
+    ];
+
+    const groundDb = [[20, 2], [30, 3.5], [60, 5.5], [100, 8], [200, 14], [400, 22], [600, 38], [800, 50], [1000, 60]];
+
+    const pipeDb = [
+        ["1.6", "---", [16,16,22,28], [15,25,25,31]],
+        ["2.0", "3.5", [16,22,22,28], [19,25,25,31]],
+        ["2.6", "5.5", [22,22,28,36], [25,25,31,39]],
+        ["---", "8",   [22,28,36,36], [25,31,39,51]],
+        ["---", "14",  [28,28,36,54], [31,31,39,51]],
+        ["---", "22",  [28,36,42,54], [31,39,51,63]],
+        ["---", "30",  [36,36,54,70], [39,51,51,63]],
+        ["---", "38",  [36,42,54,70], [39,51,63,75]],
+        ["---", "50",  [42,54,70,82], [51,51,63,75]],
+        ["---", "60",  [42,54,70,82], [51,63,75,0]],
+        ["---", "80",  [54,54,70,92], [51,63,75,0]],
+        ["---", "100", [54,70,82,104], [63,75,0,0]],
+        ["---", "125", [70,70,92,0],   [63,75,0,0]],
+        ["---", "150", [70,82,104,0],  [75,75,0,0]]
+    ];
+
+    const inchMap = {
+        15:'1/2"', 16:'1/2"', 19:'1/2"', 22:'3/4"', 25:'3/4"', 28:'1"', 31:'1"', 36:'1-1/4"', 39:'1-1/4"', 42:'1-1/2"', 51:'1-1/2"', 54:'2"', 63:'2"', 70:'2-1/2"', 75:'2-1/2"', 82:'3"', 92:'3-1/2"', 104:'4"'
+    };
+
+    function updateAll() {
+        const val = document.getElementById('ampIn').value;
+        if (!val) return;
+        const amp = parseFloat(val);
+        const cnt = parseInt(document.getElementById('wireCountIn').value) || 3;
+        let col = 1; if(cnt >= 4) col = 2; if(cnt >= 5) col = 3;
+
+        let resPvc = null, resXlpe = null, resGnd = "--";
+        for(let r of ampDb) {
+            if(!resPvc && r[col] >= amp) resPvc = r[0];
+            if(!resXlpe && r[col+3] >= amp) resXlpe = r[0];
+        }
+        for(let r of groundDb) { if(amp <= r[0]) { resGnd = r[1]; break; } }
+
+        document.getElementById('resPvc').innerText = resPvc || "超出";
+        document.getElementById('resXlpe').innerText = resXlpe || "超出";
+        document.getElementById('resGround').innerText = resGnd;
+
+        const mainSize = resXlpe || resPvc;
+        const pIdx = (cnt<=3)?0 : (cnt==4)?1 : (cnt<=6)?2 : 3;
+        
+        let pVal = "--", eVal = "--";
+        if(mainSize) {
+            const entry = pipeDb.find(e => e[1] == mainSize.toString());
+            if(entry) {
+                pVal = entry[2][pIdx] || "--";
+                eVal = entry[3][pIdx] || "--";
+            }
+        }
+        document.getElementById('resPipe').innerText = pVal != "--" ? pVal + " mm" : "--";
+        document.getElementById('resPipeInch').innerText = inchMap[pVal] ? inchMap[pVal] : "";
+        document.getElementById('resEmt').innerText = eVal != "--" ? eVal + " mm" : "--";
+        document.getElementById('resEmtInch').innerText = inchMap[eVal] ? inchMap[eVal] : "";
+
+        renderTables(resPvc, resXlpe, resGnd, mainSize);
+    }
+
+    function renderTables(hp, hx, hg, hs) {
+        let h1 = "", h2 = "", h3 = "";
+        ampDb.forEach(r => {
+            const cls = (r[0]==hp || r[0]==hx) ? "hl" : "";
+            h1 += `<tr class="${cls}"><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td><td>${r[6]}</td></tr>`;
+        });
+        groundDb.forEach(r => {
+            const cls = (r[1]==hg) ? "hl" : "";
+            h2 += `<tr class="${cls}"><td>${r[0]}A</td><td>${r[1]}</td></tr>`;
+        });
+        pipeDb.forEach(r => {
+            const cls = (r[1] == hs) ? "hl" : "";
+            let row = `<tr class="${cls}"><td>${r[0]}</td><td>${r[1]}</td>`;
+            r[2].forEach(v => row += `<td>${v || '-'}<span class="inch-tag">${inchMap[v] || ''}</span></td>`);
+            r[3].forEach(v => row += `<td>${v || '-'}<span class="inch-tag">${inchMap[v] || ''}</span></td>`);
+            h3 += row + "</tr>";
+        });
+        document.getElementById('bodyAmp').innerHTML = h1;
+        document.getElementById('bodyGround').innerHTML = h2;
+        document.getElementById('bodyPipe').innerHTML = h3;
+    }
+
+    window.onload = updateAll;
+</script>
+</body>
+</html>

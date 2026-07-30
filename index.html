@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>配電查表工具 - 行動版</title>
+    <title>配電工程查表工具 - 行動版</title>
     <style>
         :root { 
             --primary: #1a73e8; 
@@ -13,6 +13,7 @@
             --ground-bg: #e6f4ea; 
             --conduit-bg: #f3e5f5; 
             --emt-bg: #e8eaf6; 
+            --nfb-bg: #fff8e1;
             --card-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
@@ -44,7 +45,7 @@
             padding-bottom: 10px;
         }
 
-        /* 輸入區優化 */
+        /* 輸入區優化 (擴充為2x2) */
         .input-section { 
             display: grid; 
             grid-template-columns: 1fr 1fr; 
@@ -63,7 +64,7 @@
             color: var(--secondary);
         }
 
-        input { 
+        input, select { 
             width: 100%; 
             padding: 12px; 
             border: 1px solid #dadce0; 
@@ -71,6 +72,18 @@
             font-size: 1.1rem; 
             box-sizing: border-box; 
             -webkit-appearance: none; /* 移除 iOS 預設陰影 */
+            background-color: #fff;
+            color: #333;
+            font-family: inherit;
+        }
+
+        select {
+            cursor: pointer;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 16px;
+            padding-right: 30px;
         }
 
         /* 結果卡片優化 */
@@ -97,9 +110,10 @@
         /* 特殊卡片顏色 */
         .pvc-card { background: var(--pvc-bg); }
         .xlpe-card { background: var(--xlpe-bg); }
-        .ground-card { background: var(--ground-bg); grid-column: span 2; }
         .conduit-card { background: var(--conduit-bg); }
         .emt-card { background: var(--emt-bg); }
+        .ground-card { background: var(--ground-bg); }
+        .nfb-card { background: var(--nfb-bg); }
 
         h3 { 
             font-size: 1rem; 
@@ -125,11 +139,14 @@
 
         .hl { background-color: #fff9c4 !important; font-weight: bold; color: #d32f2f; }
         .inch-tag { color: #1a73e8; font-size: 11px; display: block; font-weight: bold; }
+        .table-note { font-size: 12px; color: #666; padding: 10px; line-height: 1.5; background: #fff; }
 
         /* 隱藏部分在手機上不重要的資訊，保持簡潔 */
         @media (max-width: 480px) {
             .input-section { grid-template-columns: 1fr; }
             .card-val { font-size: 1.4rem; }
+            .result-grid { gap: 8px; }
+            table { min-width: 600px; } /* 確保複雜表格能滑動 */
         }
     </style>
 </head>
@@ -146,6 +163,22 @@
         <div>
             <label>🧵 管內導線數</label>
             <input type="number" id="wireCountIn" value="3" min="1" max="10" inputmode="numeric" oninput="updateAll()">
+        </div>
+        <div>
+            <label>🔌 供電系統</label>
+            <select id="sysIn" onchange="updateAll()">
+                <option value="1P">1Φ110V、1Φ220V</option>
+                <option value="3P220">3Φ220V</option>
+                <option value="3P380">3Φ380V</option>
+            </select>
+        </div>
+        <div>
+            <label>🏠 安裝位置</label>
+            <select id="locIn" onchange="updateAll()">
+                <option value="main">用戶總開關箱</option>
+                <option value="meter">集中(單獨)表箱</option>
+                <option value="recv">受電箱</option>
+            </select>
         </div>
     </div>
 
@@ -171,13 +204,43 @@
             <span id="resEmtInch" class="card-inch"></span>
         </div>
         <div class="card ground-card">
-            <span>🛠️ 接地線需求線徑</span>
+            <span>🛠️ 接地線徑</span>
             <span class="card-val" id="resGround">--</span>
             <span class="card-unit">mm²</span>
+        </div>
+        <div class="card nfb-card">
+            <span>⚡ 最低啟斷容量 (Icu)</span>
+            <span class="card-val" id="resNfbKa">--</span>
+            <span class="card-unit">kA</span>
         </div>
     </div>
 
     <p style="font-size: 12px; color: #888; text-align: center;">* 下方表格自動標記對應規格 *</p>
+    
+    <h3>表：低壓用戶過電流保護裝置之額定極限短路啟斷容量表</h3>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th rowspan="2" style="width: 100px;">安裝位置</th>
+                    <th colspan="3">1Φ110V、1Φ220V 用戶</th>
+                    <th colspan="3">3Φ220V 用戶</th>
+                    <th colspan="3">3Φ380V 用戶</th>
+                </tr>
+                <tr>
+                    <th>&lt; 75A</th><th>&lt; 100A</th><th>&gt; 100A</th>
+                    <th>&lt; 75A</th><th>&lt; 200A</th><th>&gt; 200A</th>
+                    <th>&lt; 75A</th><th>&lt; 200A</th><th>&gt; 200A</th>
+                </tr>
+            </thead>
+            <tbody id="bodyNfbKa"></tbody>
+        </table>
+        <div class="table-note">
+            註：<br>
+            1. 本表啟斷容量亦得依短路故障電流計算結果選用適當之額定極限短路啟斷容量(Icu)。<br>
+            2. 額定使用短路啟斷容量(Ics)值應由設計者選定，且為額定極限短路啟斷容量(Icu)之 50%以上。
+        </div>
+    </div>
 
     <h3>表：導線安全電流參考</h3>
     <div class="table-wrapper">
@@ -192,7 +255,7 @@
 
     <h3>表：設備接地導線</h3>
     <div class="table-wrapper">
-        <table style="min-width: 100%;">
+        <table style="min-width: unset;">
             <thead><tr><th>額定電流 (A) 以下</th><th>接地線徑 (mm²)</th></tr></thead>
             <tbody id="bodyGround"></tbody>
         </table>
@@ -211,7 +274,7 @@
 </div>
 
 <script>
-    // 數據庫保持不變
+    // 數據庫
     const ampDb = [
         [3.5, 20, 20, 17, 32, 30, 26], [5.5, 30, 28, 25, 46, 42, 36], [8, 40, 35, 30, 55, 48, 43], [14, 55, 50, 45, 75, 70, 60],
         [22, 70, 65, 60, 100, 90, 80], [30, 90, 80, 70, 125, 110, 100], [38, 100, 90, 80, 145, 130, 115], [50, 120, 110, 100, 170, 150, 135],
@@ -220,6 +283,14 @@
     ];
 
     const groundDb = [[20, 2], [30, 3.5], [60, 5.5], [100, 8], [200, 14], [400, 22], [600, 38], [800, 50], [1000, 60]];
+
+    // KA 值資料庫 (基於提供之標準表)
+    const kaDb = [
+        // name, 1P陣列, 3P220陣列, 3P380陣列
+        { name: "受電箱", 1: [35,35,35], 2: [35,35,35], 3: [35,35,35] },
+        { name: "集中(單獨)表箱", 1: [20,20,25], 2: [20,20,25], 3: [25,25,30] },
+        { name: "用戶總開關箱", 1: [10,15,20], 2: [10,15,20], 3: [15,20,25] }
+    ];
 
     const pipeDb = [
         ["1.6", "---", [16,16,22,28], [15,25,25,31]],
@@ -245,25 +316,53 @@
     function updateAll() {
         const val = document.getElementById('ampIn').value;
         if (!val) return;
+        
         const amp = parseFloat(val);
         const cnt = parseInt(document.getElementById('wireCountIn').value) || 3;
+        const sys = document.getElementById('sysIn').value;
+        const loc = document.getElementById('locIn').value;
+
         let col = 1; if(cnt >= 4) col = 2; if(cnt >= 5) col = 3;
 
         let resPvc = null, resXlpe = null, resGnd = "--";
+        
+        // 查找線徑
         for(let r of ampDb) {
             if(!resPvc && r[col] >= amp) resPvc = r[0];
             if(!resXlpe && r[col+3] >= amp) resXlpe = r[0];
         }
+        
+        // 查找接地
         for(let r of groundDb) { if(amp <= r[0]) { resGnd = r[1]; break; } }
+        
+        // 判斷 KA 參數邏輯
+        let sysKey = (sys === '1P') ? 1 : (sys === '3P220') ? 2 : 3;
+        let locRow = (loc === 'recv') ? 0 : (loc === 'meter') ? 1 : 2;
+        let kaCol = 0; // 0: 左欄, 1: 中欄, 2: 右欄
 
+        if (sys === '1P') {
+            if (amp < 75) kaCol = 0;
+            else if (amp <= 100) kaCol = 1;
+            else kaCol = 2;
+        } else {
+            if (amp < 75) kaCol = 0;
+            else if (amp <= 200) kaCol = 1;
+            else kaCol = 2;
+        }
+
+        let resKa = kaDb[locRow][sysKey][kaCol];
+
+        // 更新卡片數值
         document.getElementById('resPvc').innerText = resPvc || "超出";
         document.getElementById('resXlpe').innerText = resXlpe || "超出";
         document.getElementById('resGround').innerText = resGnd;
+        document.getElementById('resNfbKa').innerText = resKa;
 
+        // 導線管徑邏輯
         const mainSize = resXlpe || resPvc;
         const pIdx = (cnt<=3)?0 : (cnt==4)?1 : (cnt<=6)?2 : 3;
-        
         let pVal = "--", eVal = "--";
+        
         if(mainSize) {
             const entry = pipeDb.find(e => e[1] == mainSize.toString());
             if(entry) {
@@ -276,19 +375,22 @@
         document.getElementById('resEmt').innerText = eVal != "--" ? eVal + " mm" : "--";
         document.getElementById('resEmtInch').innerText = inchMap[eVal] ? inchMap[eVal] : "";
 
-        renderTables(resPvc, resXlpe, resGnd, mainSize);
+        renderTables(resPvc, resXlpe, resGnd, mainSize, locRow, sysKey, kaCol);
     }
 
-    function renderTables(hp, hx, hg, hs) {
-        let h1 = "", h2 = "", h3 = "";
+    function renderTables(hp, hx, hg, hs, hLocRow, hSysKey, hKaCol) {
+        let h1 = "", h2 = "", h3 = "", hKa = "";
+        
         ampDb.forEach(r => {
             const cls = (r[0]==hp || r[0]==hx) ? "hl" : "";
             h1 += `<tr class="${cls}"><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td><td>${r[6]}</td></tr>`;
         });
+        
         groundDb.forEach(r => {
             const cls = (r[1]==hg) ? "hl" : "";
             h2 += `<tr class="${cls}"><td>${r[0]}A</td><td>${r[1]}</td></tr>`;
         });
+        
         pipeDb.forEach(r => {
             const cls = (r[1] == hs) ? "hl" : "";
             let row = `<tr class="${cls}"><td>${r[0]}</td><td>${r[1]}</td>`;
@@ -296,9 +398,32 @@
             r[3].forEach(v => row += `<td>${v || '-'}<span class="inch-tag">${inchMap[v] || ''}</span></td>`);
             h3 += row + "</tr>";
         });
+
+        // 繪製 KA 表格並標示當前選擇區塊
+        kaDb.forEach((r, rIdx) => {
+            hKa += `<tr><td>${r.name}</td>`;
+            // 1P 區段
+            r[1].forEach((v, cIdx) => {
+                const cls = (rIdx === hLocRow && hSysKey === 1 && cIdx === hKaCol) ? "hl" : "";
+                hKa += `<td class="${cls}">${v}kA</td>`;
+            });
+            // 3P220 區段
+            r[2].forEach((v, cIdx) => {
+                const cls = (rIdx === hLocRow && hSysKey === 2 && cIdx === hKaCol) ? "hl" : "";
+                hKa += `<td class="${cls}">${v}kA</td>`;
+            });
+            // 3P380 區段
+            r[3].forEach((v, cIdx) => {
+                const cls = (rIdx === hLocRow && hSysKey === 3 && cIdx === hKaCol) ? "hl" : "";
+                hKa += `<td class="${cls}">${v}kA</td>`;
+            });
+            hKa += `</tr>`;
+        });
+        
         document.getElementById('bodyAmp').innerHTML = h1;
         document.getElementById('bodyGround').innerHTML = h2;
         document.getElementById('bodyPipe').innerHTML = h3;
+        document.getElementById('bodyNfbKa').innerHTML = hKa;
     }
 
     window.onload = updateAll;
